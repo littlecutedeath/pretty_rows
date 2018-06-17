@@ -7,6 +7,8 @@ Some Ruby/Rails code examples of mine.
 - [Ruby - Selenium - bot](#ruby---selenium---bot)
   - [Retrieve less used proxy from db](#retrieve-less-used-proxy-from-db)
   - [Set up capybara with selenium](#set-up-capybara-with-selenium)
+- [Rails - ActiveStorage stuff](#rails---activestorage-stuff)
+  - [Custom analyzer](#custom-analyzer)
 
 ## Ruby - Selenium - bot
 
@@ -134,6 +136,53 @@ class CustomBrowserConfiguration
     return
   rescue Selenium::WebDriver::Error::SessionNotCreatedError
     return
+  end
+end
+```
+
+## Rails - ActiveStorage stuff
+
+### Custom analyzer
+
+>You may want to write custom ActiveStorage Analyzer\
+>Purpose: do some stuff while analyze image\
+>e.g. put its copy to some storage if can not do it by ActiveStorage mirroring\
+>p.s.: name of 'storage' I used replaced with example_storage, it is real usecase
+
+```ruby
+# config/initializers/active_storage.rb
+
+# remove default ImageAnalyzer from usage stack
+Rails.application.config.active_storage.analyzers.delete ActiveStorage::Analyzer::ImageAnalyzer
+# add custom analyzer (instead of default)
+Rails.application.config.active_storage.analyzers.append ExampleStorageUploadImageAnalyzer
+```
+
+```ruby
+# lib/analyzers/example_storage_upload_image_analyzer.rb
+
+require 'active_storage/analyzer/image_analyzer'
+
+class ExampleStorageUploadImageAnalyzer < ActiveStorage::Analyzer::ImageAnalyzer
+  def metadata
+    result = super
+    return if result.blank?
+
+    example_storage_upload_result =
+      if Rails.env.production?
+        ExampleStorageApiService.service.uploadAppWidgetImage(blob)
+      else
+        Hashie::Mash.new(
+          # here is hash with typical api returning data (for development)
+        )
+      end
+
+    result.merge(
+      {
+        example_storage_id: example_storage_upload_result.id,
+        example_storage_images: example_storage_upload_result.images
+      }
+    )
   end
 end
 ```
